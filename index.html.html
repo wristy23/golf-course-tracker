@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⛳ UK Golf Course Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;}
+
+/* ── HEADER ─────────────────────────────────── */
+#header{
+  background:linear-gradient(135deg,#1B4332,#2D6A4F);
+  color:#fff;padding:0 20px;height:58px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);position:relative;z-index:600;
+}
+#header h1{font-size:1.2rem;font-weight:800;letter-spacing:-.3px;}
+#header h1 span{color:#FFD700;}
+#hdr-stats{display:flex;gap:10px;flex-wrap:wrap;}
+.hpill{
+  background:rgba(255,255,255,.15);border-radius:12px;
+  padding:4px 11px;font-size:.75rem;display:flex;align-items:center;gap:5px;
+}
+.hpill b{color:#FFD700;}
+
+/* ── LAYOUT ──────────────────────────────────── */
+#main{display:flex;height:calc(100vh - 58px);}
+
+/* ── SIDEBAR ─────────────────────────────────── */
+#sidebar{
+  width:360px;min-width:360px;
+  display:flex;flex-direction:column;
+  background:#f4f6f8;
+  box-shadow:2px 0 10px rgba(0,0,0,.12);
+  z-index:500;overflow:hidden;
+}
+.tab-bar{display:flex;background:#1B4332;}
+.tab-btn{
+  flex:1;padding:9px 2px;border:none;background:transparent;
+  color:rgba(255,255,255,.55);cursor:pointer;font-size:.65rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;transition:all .18s;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.tab-btn .ti{font-size:1.05rem;}
+.tab-btn.active{background:rgba(255,255,255,.13);color:#FFD700;border-bottom:2.5px solid #FFD700;}
+.tab-btn:hover:not(.active){background:rgba(255,255,255,.07);color:#fff;}
+.tab-pane{display:none;flex:1;overflow-y:auto;padding:14px 15px;}
+.tab-pane.active{display:block;}
+
+/* ── FORM ────────────────────────────────────── */
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:.7rem;font-weight:700;color:#555;
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.fg input,.fg select,.fg textarea{
+  width:100%;padding:7px 10px;border:1.5px solid #ddd;border-radius:6px;
+  font-size:.85rem;background:#fff;transition:border-color .18s;
+  font-family:inherit;
+}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:#2D6A4F;}
+.fg textarea{resize:vertical;min-height:65px;}
+.frow{display:flex;gap:8px;}
+.frow .fg{flex:1;}
+
+/* autocomplete */
+.ac-wrap{position:relative;}
+.ac-list{
+  position:absolute;top:100%;left:0;right:0;
+  background:#fff;border:1.5px solid #2D6A4F;border-top:none;
+  border-radius:0 0 7px 7px;max-height:240px;overflow-y:auto;
+  z-index:2000;display:none;box-shadow:0 5px 14px rgba(0,0,0,.14);
+}
+.ac-list.open{display:block;}
+.ac-item{
+  padding:7px 10px;cursor:pointer;font-size:.83rem;
+  display:flex;align-items:center;gap:8px;border-bottom:1px solid #f5f5f5;
+}
+.ac-item:hover{background:#f0fff4;}
+.rbadge{
+  background:#FFD700;color:#333;font-size:.65rem;font-weight:800;
+  padding:1px 5px;border-radius:4px;min-width:26px;text-align:center;
+}
+.cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* stars */
+.star-row{display:flex;gap:3px;}
+.star{font-size:1.45rem;cursor:pointer;color:#ddd;transition:color .12s, transform .1s;user-select:none;line-height:1;}
+.star.lit{color:#FFD700;}
+.star:hover{transform:scale(1.15);}
+
+/* buttons */
+.btn{
+  width:100%;padding:9px 14px;border:none;border-radius:7px;
+  font-size:.87rem;font-weight:700;cursor:pointer;transition:all .18s;font-family:inherit;
+}
+.btn-green{background:linear-gradient(135deg,#2D6A4F,#1B4332);color:#fff;}
+.btn-green:hover{opacity:.9;transform:translateY(-1px);}
+.btn-grey{background:#e8ecef;color:#333;margin-bottom:9px;}
+.btn-grey:hover{background:#dce0e4;}
+.btn-red{background:#e53935;color:#fff;}
+.btn-sm{width:auto;padding:5px 12px;font-size:.76rem;}
+
+#loc-status{
+  font-size:.76rem;padding:5px 9px;border-radius:5px;margin-top:6px;display:none;
+}
+#loc-status.ok{background:#d4edda;color:#155724;display:block;}
+#loc-status.err{background:#f8d7da;color:#721c24;display:block;}
+#loc-status.loading{background:#fff3cd;color:#856404;display:block;}
+
+.map-toggles{
+  background:#e8f5e9;border-radius:8px;padding:10px 12px;margin-bottom:13px;font-size:.81rem;
+}
+.trow{display:flex;align-items:center;gap:8px;}
+.trow input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:#2D6A4F;}
+.trow label{cursor:pointer;}
+
+/* ── FILTER BARS ─────────────────────────────── */
+.fbar{display:flex;gap:5px;margin-bottom:11px;flex-wrap:wrap;}
+.fbtn{
+  padding:4px 9px;border:1.5px solid #ddd;border-radius:11px;
+  background:#fff;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .14s;
+}
+.fbtn.on{border-color:#2D6A4F;background:#2D6A4F;color:#fff;}
+
+/* ── ROUND CARDS ─────────────────────────────── */
+.rcard{
+  background:#fff;border-radius:9px;padding:11px 12px;margin-bottom:9px;
+  box-shadow:0 1px 5px rgba(0,0,0,.08);position:relative;
+  border-left:4px solid transparent;cursor:pointer;transition:transform .14s,box-shadow .14s;
+}
+.rcard:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.13);}
+.rcard.england{border-left-color:#1565C0;}
+.rcard.scotland{border-left-color:#6A1B9A;}
+.rcard.wales{border-left-color:#C62828;}
+.rcard.northern_ireland{border-left-color:#2E7D32;}
+.rcard .cname{font-weight:800;font-size:.88rem;margin-bottom:3px;padding-right:60px;}
+.rcard .rmeta{font-size:.73rem;color:#666;display:flex;gap:9px;flex-wrap:wrap;}
+.rcard .t100b{
+  position:absolute;top:8px;right:8px;
+  background:#FFD700;color:#333;font-size:.62rem;font-weight:800;
+  padding:2px 6px;border-radius:4px;
+}
+.rcard .delbtn{
+  position:absolute;bottom:8px;right:8px;
+  background:none;border:none;color:#ccc;cursor:pointer;font-size:.85rem;padding:2px 4px;
+}
+.rcard .delbtn:hover{color:#e53935;}
+.stars-s{color:#FFD700;font-size:.8rem;}
+
+/* ── TOP 100 LIST ───────────────────────────── */
+.t100prog{
+  background:#fff;border-radius:8px;padding:10px 13px;margin-bottom:11px;
+  box-shadow:0 1px 4px rgba(0,0,0,.07);font-size:.81rem;
+}
+.pbar-w{background:#e0e0e0;border-radius:5px;height:9px;margin-top:7px;overflow:hidden;}
+.pbar-f{height:100%;background:linear-gradient(90deg,#F9A825,#E65100);border-radius:5px;transition:width .5s;}
+.t100item{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-bottom:1px solid #f0f0f0;background:#fff;border-radius:7px;
+  margin-bottom:4px;font-size:.82rem;cursor:pointer;transition:background .13s;
+}
+.t100item:hover{background:#f8f8f8;}
+.t100item.played{background:#fffde7;}
+.t100item .trank{font-weight:800;color:#bbb;min-width:26px;font-size:.76rem;}
+.t100item.played .trank{color:#F9A825;}
+.t100item .tname{flex:1;font-weight:500;}
+.t100item.played .tname{font-weight:800;color:#1B4332;}
+.t100item .tcountry{font-size:.68rem;color:#999;}
+.ptick{color:#4CAF50;font-size:.95rem;font-weight:800;}
+
+/* ── STATS ──────────────────────────────────── */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:15px;}
+.scard{
+  background:#fff;border-radius:9px;padding:12px;text-align:center;
+  box-shadow:0 1px 5px rgba(0,0,0,.07);
+}
+.scard .snum{font-size:1.75rem;font-weight:900;color:#1B4332;line-height:1;}
+.scard .slbl{font-size:.67rem;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;}
+.cobar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.8rem;}
+.cobar-fill{height:11px;border-radius:5px;min-width:5px;transition:width .5s;}
+.sec-title{
+  font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  color:#2D6A4F;margin-bottom:9px;padding-bottom:4px;border-bottom:2px solid #c8e6c9;
+}
+.data-row{display:flex;gap:8px;margin-bottom:9px;}
+.data-row .btn{flex:1;}
+
+/* ── EMPTY STATE ─────────────────────────────── */
+.empty{text-align:center;padding:28px 16px;color:#bbb;}
+.empty .eico{font-size:2.3rem;margin-bottom:8px;}
+.empty p{font-size:.82rem;line-height:1.5;}
+
+/* ── MAP ─────────────────────────────────────── */
+#map{flex:1;}
+.leaflet-popup-content{font-family:'Segoe UI',system-ui,sans-serif;min-width:185px;}
+.pcname{font-weight:800;font-size:.95rem;margin-bottom:5px;}
+.pmeta{font-size:.78rem;color:#555;margin-bottom:2px;}
+.pt100{
+  display:inline-block;background:#FFD700;color:#333;
+  font-size:.67rem;font-weight:800;padding:2px 7px;border-radius:4px;margin-bottom:5px;
+}
+.pstars{color:#FFD700;font-size:.9rem;}
+
+/* legend */
+.map-legend{background:rgba(255,255,255,.92);border-radius:8px;padding:8px 11px;font-size:.72rem;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+.lic{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* toast */
+#toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:#1B4332;color:#fff;padding:9px 20px;border-radius:20px;
+  font-size:.85rem;font-weight:700;z-index:9999;
+  opacity:0;transition:opacity .28s;pointer-events:none;white-space:nowrap;
+}
+#toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<div id="header">
+  <h1>⛳ UK Golf <span>Course Tracker</span></h1>
+  <div id="hdr-stats">
+    <div class="hpill">⛳ <b id="hs-unique">0</b> unique courses</div>
+    <div class="hpill">🏆 <b id="hs-top">0</b>/100 top 100</div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<div id="main">
+
+  <!-- ─── SIDEBAR ─── -->
+  <div id="sidebar">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('add')" id="tb-add">
+        <span class="ti">➕</span>Add Round
+      </button>
+      <button class="tab-btn" onclick="switchTab('rounds')" id="tb-rounds">
+        <span class="ti">📋</span>My Rounds
+      </button>
+      <button class="tab-btn" onclick="switchTab('top100')" id="tb-top100">
+        <span class="ti">🏆</span>Top 100
+      </button>
+      <button class="tab-btn" onclick="switchTab('stats')" id="tb-stats">
+        <span class="ti">📊</span>Stats
+      </button>
+    </div>
+
+    <!-- ──────── ADD ROUND ──────── -->
+    <div id="pane-add" class="tab-pane active">
+
+      <div class="map-toggles">
+        <div class="trow">
+          <input type="checkbox" id="tog-top100" checked onchange="toggleTop100Pins()">
+          <label for="tog-top100">Show all Top 100 locations on map</label>
+        </div>
+      </div>
+
+      <form id="add-form" onsubmit="submitRound(event)">
+        <div class="fg">
+          <label>Course Name *</label>
+          <div class="ac-wrap">
+            <input type="text" id="f-name" placeholder="Type course name…" autocomplete="off"
+              oninput="acInput(this.value)" onblur="acHide()" onkeydown="if(event.key==='Enter'){event.preventDefault();findLocation();}" required>
+            <div class="ac-list" id="ac-list"></div>
+          </div>
+        </div>
+
+        <div class="frow">
+          <div class="fg">
+            <label>Country *</label>
+            <select id="f-country" required>
+              <option value="">Select…</option>
+              <option value="england">🏴󠁧󠁢󠁥󠁮󠁧󠁿 England</option>
+              <option value="scotland">🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland</option>
+              <option value="wales">🏴󠁧󠁢󠁷󠁬󠁳󠁿 Wales</option>
+              <option value="northern_ireland">🇬🇧 N. Ireland</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Date Played *</label>
+            <input type="date" id="f-date" required>
+          </div>
+        </div>
+
+        <div class="frow">
+          <div class="fg">
+            <label>Gross Score</label>
+            <input type="number" id="f-score" placeholder="e.g. 82" min="40" max="200">
+          </div>
+          <div class="fg">
+            <label>Holes</label>
+            <select id="f-holes">
+              <option value="18">18 holes</option>
+              <option value="9">9 holes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fg">
+          <label>Your Rating</label>
+          <div class="star-row" id="stars">
+            <span class="star" onclick="setRating(1)" onmouseover="hvrRating(1)" onmouseout="rstRating()">★</span>
+            <span class="star" onclick="setRating(2)" onmouseover="hvrRating(2)" onmouseout="rstRating()">★</span>
+            <span class="star" onclick="setRating(3)" onmouseover="hvrRating(3)" onmouseout="rstRating()">★</span>
+            <span class="star" onclick="setRating(4)" onmouseover="hvrRating(4)" onmouseout="rstRating()">★</span>
+            <span class="star" onclick="setRating(5)" onmouseover="hvrRating(5)" onmouseout="rstRating()">★</span>
+          </div>
+          <input type="hidden" id="f-rating" value="0">
+        </div>
+
+        <div class="fg">
+          <label>Weather</label>
+          <select id="f-weather">
+            <option value="">— Select conditions —</option>
+            <option value="☀️ Sunny">☀️ Sunny</option>
+            <option value="⛅ Partly Cloudy">⛅ Partly Cloudy</option>
+            <option value="☁️ Overcast">☁️ Overcast</option>
+            <option value="💨 Windy">💨 Windy</option>
+            <option value="🌦️ Light Rain">🌦️ Light Rain</option>
+            <option value="🌧️ Heavy Rain">🌧️ Heavy Rain</option>
+            <option value="❄️ Cold / Frosty">❄️ Cold / Frosty</option>
+            <option value="⛈️ Stormy">⛈️ Stormy</option>
+          </select>
+        </div>
+
+        <div class="fg">
+          <label>Notes</label>
+          <textarea id="f-notes" placeholder="Highlights, memorable holes, who you played with…"></textarea>
+        </div>
+
+        <input type="hidden" id="f-lat">
+        <input type="hidden" id="f-lng">
+        <input type="hidden" id="f-t100">
+
+        <button type="button" class="btn btn-grey" onclick="findLocation()" id="find-btn">
+          🔍 Search &amp; Find on Map
+        </button>
+        <div id="loc-status"></div>
+        <div style="height:8px"></div>
+        <button type="submit" class="btn btn-green">⛳ Save Round</button>
+        <p style="font-size:.7rem;color:#aaa;margin-top:7px;text-align:center;">
+          Tip: Click <b>Search &amp; Find</b> or press Enter after typing · Or click anywhere on the map to pin manually
+        </p>
+      </form>
+    </div>
+
+    <!-- ──────── MY ROUNDS ──────── -->
+    <div id="pane-rounds" class="tab-pane">
+      <div class="fbar">
+        <button class="fbtn on" onclick="filterRounds('all',this)">All</button>
+        <button class="fbtn" onclick="filterRounds('england',this)">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Eng</button>
+        <button class="fbtn" onclick="filterRounds('scotland',this)">🏴󠁧󠁢󠁳󠁣󠁴󠁿 Sco</button>
+        <button class="fbtn" onclick="filterRounds('wales',this)">🏴󠁧󠁢󠁷󠁬󠁳󠁿 Wal</button>
+        <button class="fbtn" onclick="filterRounds('northern_ireland',this)">🇬🇧 NI</button>
+        <button class="fbtn" onclick="filterRounds('top100',this)">🏆 Top100</button>
+      </div>
+      <div id="rounds-list"></div>
+    </div>
+
+    <!-- ──────── TOP 100 ──────── -->
+    <div id="pane-top100" class="tab-pane">
+      <div class="t100prog">
+        <div style="display:flex;justify-content:space-between;font-weight:700;">
+          <span>Top 100 Progress</span>
+          <span id="t100-pct" style="color:#F9A825">0%</span>
+        </div>
+        <div style="font-size:.75rem;color:#888;margin-top:2px;" id="t100-txt">0 of 100 played</div>
+        <div class="pbar-w"><div class="pbar-f" id="t100-bar" style="width:0%"></div></div>
+      </div>
+      <div class="fbar" id="t100-fbar">
+        <button class="fbtn on" onclick="filterTop100('all',this)">All</button>
+        <button class="fbtn" onclick="filterTop100('england',this)">England</button>
+        <button class="fbtn" onclick="filterTop100('scotland',this)">Scotland</button>
+        <button class="fbtn" onclick="filterTop100('wales',this)">Wales</button>
+        <button class="fbtn" onclick="filterTop100('northern_ireland',this)">NI</button>
+        <button class="fbtn" onclick="filterTop100('played',this)">✅ Played</button>
+      </div>
+      <div id="t100-list"></div>
+    </div>
+
+    <!-- ──────── STATS ──────── -->
+    <div id="pane-stats" class="tab-pane">
+      <div class="sgrid" id="sgrid"></div>
+      <div class="sec-title">Rounds by Country</div>
+      <div id="cobars"></div>
+      <div style="height:14px"></div>
+      <div class="sec-title">Data Management</div>
+      <div class="data-row">
+        <button class="btn btn-grey" onclick="exportData()">📤 Export</button>
+        <button class="btn btn-grey" onclick="document.getElementById('imp-f').click()">📥 Import</button>
+        <input type="file" id="imp-f" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+      <button class="btn btn-red" onclick="clearAll()" style="font-size:.82rem;padding:8px;">🗑️ Clear All Data</button>
+    </div>
+  </div>
+
+  <!-- ─── MAP ─── -->
+  <div id="map"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═════════════════ SCRIPT ═════════════════ -->
+<script>
+// ══════════════════════════════════════════════════
+// TOP 100 UK GOLF COURSES DATA
+// Source: NCG Top 100s / Swyng 2026 compilation
+// ══════════════════════════════════════════════════
+const T100 = [
+  // SCOTLAND (25)
+  {rank:1,  name:"St Andrews (Old Course)",        country:"scotland",         lat:56.3429, lng:-2.8019},
+  {rank:3,  name:"Muirfield",                       country:"scotland",         lat:56.0354, lng:-2.8158},
+  {rank:4,  name:"Royal Dornoch",                   country:"scotland",         lat:57.8787, lng:-4.0331},
+  {rank:6,  name:"Carnoustie",                      country:"scotland",         lat:56.5025, lng:-2.7151},
+  {rank:9,  name:"Kingsbarns",                      country:"scotland",         lat:56.2814, lng:-2.6507},
+  {rank:10, name:"Turnberry (Ailsa Course)",         country:"scotland",         lat:55.3185, lng:-4.8391},
+  {rank:11, name:"North Berwick",                   country:"scotland",         lat:56.0564, lng:-2.7176},
+  {rank:15, name:"Royal Troon",                     country:"scotland",         lat:55.5388, lng:-4.6741},
+  {rank:16, name:"Gleneagles (King's Course)",      country:"scotland",         lat:56.2751, lng:-3.7733},
+  {rank:18, name:"Prestwick",                       country:"scotland",         lat:55.4960, lng:-4.6178},
+  {rank:19, name:"Cruden Bay",                      country:"scotland",         lat:57.4103, lng:-1.8633},
+  {rank:20, name:"Loch Lomond",                     country:"scotland",         lat:56.0703, lng:-4.5883},
+  {rank:22, name:"Western Gailes",                  country:"scotland",         lat:55.6000, lng:-4.7530},
+  {rank:24, name:"Royal Aberdeen",                  country:"scotland",         lat:57.2010, lng:-2.0890},
+  {rank:25, name:"Gullane No.1",                    country:"scotland",         lat:56.0340, lng:-2.8530},
+  {rank:27, name:"Cabot Highlands",                 country:"scotland",         lat:57.5130, lng:-4.0875},
+  {rank:28, name:"Dumbarnie Links",                 country:"scotland",         lat:56.1960, lng:-3.0650},
+  {rank:30, name:"Nairn",                           country:"scotland",         lat:57.5880, lng:-3.8760},
+  {rank:33, name:"Machrihanish",                    country:"scotland",         lat:55.4190, lng:-5.7520},
+  {rank:37, name:"The Golf House Club, Elie",       country:"scotland",         lat:56.1850, lng:-2.8270},
+  {rank:41, name:"Gleneagles (Queen's Course)",     country:"scotland",         lat:56.2731, lng:-3.7750},
+  {rank:42, name:"Machrihanish Dunes",              country:"scotland",         lat:55.4220, lng:-5.7550},
+  {rank:98, name:"Trump International Golf Links",  country:"scotland",         lat:57.3340, lng:-1.9980},
+  {rank:99, name:"The Machrie",                     country:"scotland",         lat:55.7660, lng:-6.3480},
+  {rank:100,name:"Skibo Castle",                    country:"scotland",         lat:57.8540, lng:-4.0640},
+  // NORTHERN IRELAND (5)
+  {rank:2,  name:"Royal County Down",               country:"northern_ireland", lat:54.2130, lng:-5.8960},
+  {rank:5,  name:"Royal Portrush",                  country:"northern_ireland", lat:55.2060, lng:-6.6580},
+  {rank:29, name:"Portstewart (Strand Course)",     country:"northern_ireland", lat:55.1880, lng:-6.7190},
+  {rank:36, name:"Castlerock",                      country:"northern_ireland", lat:55.1480, lng:-6.7790},
+  {rank:44, name:"Royal County Down (Annesley)",    country:"northern_ireland", lat:54.2150, lng:-5.8980},
+  // WALES (10)
+  {rank:17, name:"Royal Porthcawl",                 country:"wales",            lat:51.4780, lng:-3.7010},
+  {rank:32, name:"Royal St David's",                country:"wales",            lat:52.9300, lng:-4.0820},
+  {rank:38, name:"Aberdovey",                       country:"wales",            lat:52.5430, lng:-4.0590},
+  {rank:46, name:"Pennard",                         country:"wales",            lat:51.5670, lng:-4.1050},
+  {rank:48, name:"Conwy",                           country:"wales",            lat:53.2820, lng:-3.8260},
+  {rank:51, name:"Tenby",                           country:"wales",            lat:51.6650, lng:-4.6980},
+  {rank:54, name:"Pyle & Kenfig",                   country:"wales",            lat:51.5270, lng:-3.7410},
+  {rank:58, name:"Ashburnham",                      country:"wales",            lat:51.6990, lng:-4.2370},
+  {rank:61, name:"Southerndown",                    country:"wales",            lat:51.4490, lng:-3.5940},
+  {rank:63, name:"Machynys Peninsula",              country:"wales",            lat:51.6680, lng:-4.1500},
+  // ENGLAND (60)
+  {rank:7,  name:"Royal St George's",               country:"england",          lat:51.2730, lng: 1.3880},
+  {rank:8,  name:"Royal Birkdale",                  country:"england",          lat:53.6220, lng:-3.0440},
+  {rank:12, name:"Royal Lytham & St Annes",         country:"england",          lat:53.7340, lng:-3.0160},
+  {rank:13, name:"Royal Liverpool (Hoylake)",       country:"england",          lat:53.3830, lng:-3.1820},
+  {rank:14, name:"Sunningdale (Old Course)",        country:"england",          lat:51.3840, lng:-0.5970},
+  {rank:21, name:"Sunningdale (New Course)",        country:"england",          lat:51.3830, lng:-0.5980},
+  {rank:23, name:"Walton Heath (Old Course)",       country:"england",          lat:51.2600, lng:-0.2170},
+  {rank:26, name:"Woodhall Spa (Hotchkin Course)",  country:"england",          lat:53.1540, lng:-0.2050},
+  {rank:31, name:"Formby",                          country:"england",          lat:53.5780, lng:-3.0810},
+  {rank:34, name:"Swinley Forest",                  country:"england",          lat:51.3780, lng:-0.6760},
+  {rank:35, name:"Alwoodley",                       country:"england",          lat:53.8720, lng:-1.5790},
+  {rank:39, name:"Royal Cinque Ports",              country:"england",          lat:51.2100, lng: 1.3820},
+  {rank:40, name:"Ganton",                          country:"england",          lat:54.2270, lng:-0.5140},
+  {rank:43, name:"Saunton (East Course)",           country:"england",          lat:51.0970, lng:-4.1860},
+  {rank:45, name:"Royal West Norfolk",              country:"england",          lat:52.9660, lng: 0.5250},
+  {rank:47, name:"St George's Hill",                country:"england",          lat:51.3590, lng:-0.4720},
+  {rank:49, name:"Hillside",                        country:"england",          lat:53.6380, lng:-3.0440},
+  {rank:50, name:"Rye",                             country:"england",          lat:50.9210, lng: 0.7650},
+  {rank:52, name:"Burnham & Berrow",                country:"england",          lat:51.2490, lng:-3.0030},
+  {rank:53, name:"Notts (Hollinwell)",              country:"england",          lat:53.0950, lng:-1.1820},
+  {rank:55, name:"St Enodoc (Church Course)",       country:"england",          lat:50.5570, lng:-4.9320},
+  {rank:56, name:"Hankley Common",                  country:"england",          lat:51.1830, lng:-0.6690},
+  {rank:57, name:"Silloth on Solway",               country:"england",          lat:54.8710, lng:-3.3910},
+  {rank:59, name:"The Berkshire (Red Course)",      country:"england",          lat:51.3760, lng:-0.6870},
+  {rank:60, name:"West Lancs",                      country:"england",          lat:53.5690, lng:-3.0630},
+  {rank:62, name:"West Sussex",                     country:"england",          lat:50.9740, lng:-0.5920},
+  {rank:64, name:"Hunstanton",                      country:"england",          lat:52.9440, lng: 0.4950},
+  {rank:65, name:"Woking",                          country:"england",          lat:51.3110, lng:-0.5340},
+  {rank:66, name:"Southport & Ainsdale",            country:"england",          lat:53.6020, lng:-3.0430},
+  {rank:67, name:"Prince's",                        country:"england",          lat:51.2780, lng: 1.3790},
+  {rank:68, name:"The Berkshire (Blue Course)",     country:"england",          lat:51.3750, lng:-0.6880},
+  {rank:69, name:"Walton Heath (New Course)",       country:"england",          lat:51.2590, lng:-0.2180},
+  {rank:70, name:"Sherwood Forest",                 country:"england",          lat:53.0960, lng:-1.0900},
+  {rank:71, name:"Liphook",                         country:"england",          lat:51.0780, lng:-0.7970},
+  {rank:72, name:"Worplesdon",                      country:"england",          lat:51.2880, lng:-0.5900},
+  {rank:73, name:"Parkstone",                       country:"england",          lat:50.7270, lng:-1.9480},
+  {rank:74, name:"Moortown",                        country:"england",          lat:53.8660, lng:-1.5780},
+  {rank:75, name:"Aldeburgh",                       country:"england",          lat:52.1570, lng: 1.5810},
+  {rank:76, name:"Trevose",                         country:"england",          lat:50.5310, lng:-5.0030},
+  {rank:77, name:"West Hill",                       country:"england",          lat:51.2780, lng:-0.6260},
+  {rank:78, name:"Seaton Carew",                    country:"england",          lat:54.6570, lng:-1.1870},
+  {rank:79, name:"Royal Worlington",                country:"england",          lat:52.3610, lng: 0.6120},
+  {rank:80, name:"Goswick",                         country:"england",          lat:55.6230, lng:-1.8700},
+  {rank:81, name:"Ferndown",                        country:"england",          lat:50.8090, lng:-1.8770},
+  {rank:82, name:"The Addington",                   country:"england",          lat:51.3560, lng:-0.0630},
+  {rank:83, name:"Wallasey",                        country:"england",          lat:53.4350, lng:-3.0830},
+  {rank:84, name:"Broadstone",                      country:"england",          lat:50.7570, lng:-2.0120},
+  {rank:85, name:"Royal North Devon",               country:"england",          lat:51.0920, lng:-4.1940},
+  {rank:86, name:"Little Aston",                    country:"england",          lat:52.5820, lng:-1.8250},
+  {rank:87, name:"Hindhead",                        country:"england",          lat:51.1010, lng:-0.7290},
+  {rank:88, name:"Seacroft",                        country:"england",          lat:53.1460, lng: 0.3480},
+  {rank:89, name:"Ipswich (Purdis Heath)",          country:"england",          lat:52.0220, lng: 1.2200},
+  {rank:90, name:"New Zealand Golf Club",           country:"england",          lat:51.3660, lng:-0.4640},
+  {rank:91, name:"Delamere Forest",                 country:"england",          lat:53.2290, lng:-2.6060},
+  {rank:92, name:"Hayling",                         country:"england",          lat:50.7910, lng:-0.9690},
+  {rank:93, name:"Blackmoor",                       country:"england",          lat:51.0740, lng:-0.9150},
+  {rank:94, name:"Beau Desert",                     country:"england",          lat:52.6840, lng:-1.9820},
+  {rank:95, name:"Royal Ashdown Forest",            country:"england",          lat:51.0650, lng: 0.0260},
+  {rank:96, name:"Littlestone",                     country:"england",          lat:50.9860, lng: 0.9980},
+  {rank:97, name:"JCB Golf & Country Club",         country:"england",          lat:52.9060, lng:-2.1290},
+];
+
+// ══════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════
+const CC = {
+  england:         '#1565C0',
+  scotland:        '#6A1B9A',
+  wales:           '#C62828',
+  northern_ireland:'#2E7D32'
+};
+const CN = {
+  england:         '🏴󠁧󠁢󠁥󠁮󠁧󠁿 England',
+  scotland:        '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland',
+  wales:           '🏴󠁧󠁢󠁷󠁬󠁳󠁿 Wales',
+  northern_ireland:'🇬🇧 N. Ireland'
+};
+const SK = 'golf_tracker_v1';
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let rounds = [];
+let gmap, top100Layers = [], roundLayers = [];
+let curRating = 0;
+let rfilt = 'all';
+let t100filt = 'all';
+let showT100Pins = true;
+
+// ══════════════════════════════════════════════════
+// STORAGE
+// ══════════════════════════════════════════════════
+function load() {
+  try { rounds = JSON.parse(localStorage.getItem(SK)) || []; }
+  catch { rounds = []; }
+}
+function save() { localStorage.setItem(SK, JSON.stringify(rounds)); }
+
+// ══════════════════════════════════════════════════
+// MAP
+// ══════════════════════════════════════════════════
+function initMap() {
+  gmap = L.map('map',{
+    zoomControl: true,
+    minZoom: 5,
+    maxZoom: 18,
+    maxBounds: [[49.0,-10.5],[61.5,2.5]],
+    maxBoundsViscosity: 1.0
+  }).setView([54.5,-3.5],5);
+  gmap.createPane('maskPane');
+  gmap.getPane('maskPane').style.zIndex = 250;
+  gmap.getPane('maskPane').style.pointerEvents = 'none';
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors © <a href="https://carto.com">CARTO</a>',
+    subdomains:'abcd',
+    maxZoom:19
+  }).addTo(gmap);
+
+  // Legend
+  const leg = L.control({position:'bottomright'});
+  leg.onAdd = () => {
+    const d = L.DomUtil.create('div','map-legend');
+    d.innerHTML = `
+      <div style="font-weight:800;margin-bottom:6px;font-size:.73rem;color:#1B4332">LEGEND</div>
+      <div class="lic"><div class="ldot" style="background:#FFD700;border:2px solid #E65100;"></div>Top 100 Played</div>
+      <div class="lic"><div class="ldot" style="background:#1565C0;"></div>England</div>
+      <div class="lic"><div class="ldot" style="background:#6A1B9A;"></div>Scotland</div>
+      <div class="lic"><div class="ldot" style="background:#C62828;"></div>Wales</div>
+      <div class="lic"><div class="ldot" style="background:#2E7D32;"></div>N. Ireland</div>
+      <div class="lic"><div class="ldot" style="background:#ccc;border:1px solid #999;"></div>Top 100 (unplayed)</div>
+    `;
+    return d;
+  };
+  leg.addTo(gmap);
+
+  // Click-to-set-location (always overrides when Add tab is active)
+  gmap.on('click', e => {
+    if (document.getElementById('pane-add').classList.contains('active')) {
+      document.getElementById('f-lat').value = e.latlng.lat.toFixed(5);
+      document.getElementById('f-lng').value = e.latlng.lng.toFixed(5);
+      document.getElementById('f-t100').value = '';
+      setLocStatus(`📍 Location pinned manually: ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`, 'ok');
+    }
+  });
+
+  refreshMarkers();
+  loadUKMask();
+}
+
+function refreshMarkers() {
+  roundLayers.forEach(m => m.remove());
+  top100Layers.forEach(m => m.remove());
+  roundLayers = []; top100Layers = [];
+
+  const playedRanks = new Set(rounds.filter(r=>r.t100).map(r=>r.t100));
+
+  // Unplayed top 100 pins
+  if (showT100Pins) {
+    T100.forEach(c => {
+      if (!playedRanks.has(c.rank)) {
+        const m = L.circleMarker([c.lat,c.lng],{
+          radius:5, fillColor:'#bdbdbd', color:'#888',
+          weight:1, opacity:.7, fillOpacity:.5
+        }).addTo(gmap);
+        m.bindTooltip(`<b>#${c.rank}</b> ${c.name}`,{direction:'top',offset:[0,-5]});
+        top100Layers.push(m);
+      }
+    });
+  }
+
+  // Played rounds
+  rounds.forEach(r => {
+    if (!r.lat || !r.lng) return;
+    const isGold = !!r.t100;
+    const col   = isGold ? '#FFD700' : CC[r.country] || '#888';
+    const bord  = isGold ? '#E65100' : '#fff';
+    const rad   = isGold ? 11 : 8;
+
+    const m = L.circleMarker([r.lat,r.lng],{
+      radius:rad, fillColor:col, color:bord,
+      weight: isGold ? 2.5 : 1.5,
+      opacity:1, fillOpacity:.9
+    }).addTo(gmap);
+
+    const stars = r.rating ? '★'.repeat(r.rating)+'☆'.repeat(5-r.rating) : '';
+    const t100html = r.t100 ? `<div class="pt100">🏆 #${r.t100} Top 100</div>` : '';
+    m.bindPopup(`
+      <div class="leaflet-popup-content">
+        <div class="pcname">${r.name}</div>
+        ${t100html}
+        <div class="pmeta">📅 ${r.date||'—'}</div>
+        ${r.score?`<div class="pmeta">🏌️ Score: <strong>${r.score}</strong>${r.holes===9?' (9 holes)':''}</div>`:''}
+        ${stars?`<div class="pstars">${stars}</div>`:''}
+        ${r.weather?`<div class="pmeta">${r.weather}</div>`:''}
+        ${r.notes?`<div class="pmeta" style="font-style:italic;margin-top:4px;">"${r.notes.substring(0,100)}${r.notes.length>100?'…':''}"</div>`:''}
+      </div>
+    `);
+    roundLayers.push(m);
+  });
+}
+
+function toggleTop100Pins() {
+  showT100Pins = document.getElementById('tog-top100').checked;
+  refreshMarkers();
+}
+
+// ══════════════════════════════════════════════════
+// AUTOCOMPLETE
+// ══════════════════════════════════════════════════
+// Autocomplete state
+let _acTimer = null;
+let _acGeoHits = [];
+
+function acInput(v) {
+  clearTimeout(_acTimer);
+  const list = document.getElementById('ac-list');
+  if (v.length < 2) { list.classList.remove('open'); return; }
+
+  // Show Top 100 matches instantly
+  const t100hits = T100.filter(c => c.name.toLowerCase().includes(v.toLowerCase())).slice(0,5);
+
+  // Show Top 100 results immediately, then debounce Nominatim search
+  if (t100hits.length) renderAcList(t100hits, []);
+  _acTimer = setTimeout(() => geoAcSearch(v, t100hits), 380);
+}
+
+async function geoAcSearch(v, t100hits) {
+  try {
+    const encoded = encodeURIComponent(v + ' golf');
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&countrycodes=gb,ie&limit=6&addressdetails=1`,
+      { headers: { 'Accept': 'application/json', 'User-Agent': 'UKGolfTracker/1.0' } }
+    );
+    const data = await res.json();
+    const geoHits = data.filter(r =>
+      (r.display_name||'').toLowerCase().includes('golf') ||
+      (r.type||'').toLowerCase().includes('golf') ||
+      (r.name||'').toLowerCase().includes('golf')
+    ).slice(0, Math.max(1, 6 - t100hits.length));
+    renderAcList(t100hits, geoHits);
+  } catch { /* silent */ }
+}
+
+function extractCourseName(r) {
+  return r.name || (r.display_name || '').split(',')[0].trim();
+}
+
+function inferCountry(addr) {
+  const s = JSON.stringify(addr || {}).toLowerCase();
+  if (s.includes('scotland')) return 'scotland';
+  if (s.includes('wales') || s.includes('cymru')) return 'wales';
+  if (s.includes('northern ireland')) return 'northern_ireland';
+  return 'england';
+}
+
+function renderAcList(t100hits, geoHits) {
+  const list = document.getElementById('ac-list');
+  if (!t100hits.length && !geoHits.length) { list.classList.remove('open'); return; }
+  _acGeoHits = geoHits;
+
+  const t100html = t100hits.map(c =>
+    `<div class="ac-item" onmousedown="acPick(${c.rank})">
+       <span class="rbadge">#${c.rank}</span>
+       <div class="cdot" style="background:${CC[c.country]}"></div>
+       <span>${c.name}</span>
+     </div>`
+  ).join('');
+
+  const divider = (t100hits.length && geoHits.length)
+    ? `<div style="font-size:.65rem;color:#aaa;padding:3px 10px;background:#f9f9f9;border-bottom:1px solid #eee;letter-spacing:.4px;">OTHER COURSES</div>`
+    : '';
+
+  const geohtml = geoHits.map((r, i) => {
+    const name    = extractCourseName(r);
+    const addr    = r.address || {};
+    const country = inferCountry(addr);
+    const sub     = [addr.county, addr.state_district, addr.state]
+                      .filter(Boolean)[0] || '';
+    return `<div class="ac-item" onmousedown="acPickGeo(${i})">
+       <div class="cdot" style="background:${CC[country]}"></div>
+       <div style="flex:1;min-width:0">
+         <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+         ${sub ? `<div style="font-size:.68rem;color:#999;">${sub}</div>` : ''}
+       </div>
+     </div>`;
+  }).join('');
+
+  list.innerHTML = t100html + divider + geohtml;
+  list.classList.add('open');
+}
+
+function acPick(rank) {
+  const c = T100.find(x => x.rank===rank);
+  if (!c) return;
+  document.getElementById('f-name').value    = c.name;
+  document.getElementById('f-country').value = c.country;
+  document.getElementById('f-lat').value     = c.lat;
+  document.getElementById('f-lng').value     = c.lng;
+  document.getElementById('f-t100').value    = c.rank;
+  document.getElementById('ac-list').classList.remove('open');
+  setLocStatus(`✅ Top 100 #${c.rank} — location loaded`,'ok');
+  gmap.flyTo([c.lat, c.lng], 13);
+}
+
+function acPickGeo(i) {
+  const r = _acGeoHits[i];
+  if (!r) return;
+  const name    = extractCourseName(r);
+  const country = inferCountry(r.address || {});
+  const lat     = parseFloat(r.lat);
+  const lng     = parseFloat(r.lon);
+
+  document.getElementById('f-name').value    = name;
+  document.getElementById('f-country').value = country;
+  document.getElementById('f-lat').value     = lat.toFixed(5);
+  document.getElementById('f-lng').value     = lng.toFixed(5);
+  document.getElementById('f-t100').value    = '';
+  document.getElementById('ac-list').classList.remove('open');
+
+  const parts = (r.display_name || '').split(',').map(s => s.trim());
+  setLocStatus(`✅ Located: ${parts.slice(0,3).join(', ')}`, 'ok');
+  gmap.flyTo([lat, lng], 14);
+}
+
+function acHide() {
+  setTimeout(() => document.getElementById('ac-list').classList.remove('open'), 200);
+}
+
+// ══════════════════════════════════════════════════
+// GEOCODING  (multi-strategy with fallbacks)
+// ══════════════════════════════════════════════════
+async function nominatimSearch(q, ukOnly) {
+  const encoded = encodeURIComponent(q);
+  const cc = ukOnly ? '&countrycodes=gb,ie' : '';
+  const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json${cc}&limit=5&addressdetails=1`;
+  const res = await fetch(url, {headers:{'Accept':'application/json','User-Agent':'UKGolfTracker/1.0'}});
+  return res.json();
+}
+
+function bestResult(data) {
+  if (!data || !data.length) return null;
+  // Prefer results that mention golf in their type, class or display name
+  const golfHit = data.find(r =>
+    (r.type||'').toLowerCase().includes('golf') ||
+    (r.class||'').toLowerCase().includes('leisure') ||
+    (r.display_name||'').toLowerCase().includes('golf')
+  );
+  return golfHit || data[0];
+}
+
+async function findLocation() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { setLocStatus('Please enter a course name first','err'); return; }
+
+  // 1. Check Top 100 exact match
+  const exact = T100.find(c => c.name.toLowerCase() === name.toLowerCase());
+  if (exact) { acPick(exact.rank); return; }
+
+  setLocStatus('🔍 Searching for course…','loading');
+
+  // 2. Try progressively broader queries, UK-first then worldwide fallback
+  const queries = [
+    [name + ' Golf Club', true],
+    [name + ' Golf Course', true],
+    [name + ' golf', true],
+    [name, true],
+    [name + ' Golf Club', false],
+    [name + ' golf', false],
+  ];
+
+  for (const [q, ukOnly] of queries) {
+    try {
+      const data = await nominatimSearch(q, ukOnly);
+      const r = bestResult(data);
+      if (r) {
+        const lat = parseFloat(r.lat);
+        const lng = parseFloat(r.lon);
+        document.getElementById('f-lat').value = lat.toFixed(5);
+        document.getElementById('f-lng').value = lng.toFixed(5);
+        document.getElementById('f-t100').value = '';
+        const parts = (r.display_name || '').split(',').map(s => s.trim());
+        const label = parts.slice(0, 3).join(', ');
+        setLocStatus(`✅ Located: ${label}`, 'ok');
+        gmap.flyTo([lat, lng], 14);
+        return;
+      }
+    } catch { /* try next strategy */ }
+  }
+
+  setLocStatus("❌ Couldn\'t auto-locate — click anywhere on the map to pin it manually", 'err');
+}
+
+function setLocStatus(msg,type) {
+  const el = document.getElementById('loc-status');
+  el.textContent = msg; el.className = type;
+}
+
+// ══════════════════════════════════════════════════
+// STAR RATING
+// ══════════════════════════════════════════════════
+function setRating(v) {
+  curRating = v;
+  document.getElementById('f-rating').value = v;
+  paintStars(v);
+}
+function hvrRating(v) { paintStars(v); }
+function rstRating()  { paintStars(curRating); }
+function paintStars(v) {
+  document.querySelectorAll('#stars .star').forEach((s,i)=>s.classList.toggle('lit',i<v));
+}
+
+// ══════════════════════════════════════════════════
+// SUBMIT ROUND
+// ══════════════════════════════════════════════════
+function submitRound(e) {
+  e.preventDefault();
+  const name    = document.getElementById('f-name').value.trim();
+  const country = document.getElementById('f-country').value;
+  const date    = document.getElementById('f-date').value;
+  const score   = document.getElementById('f-score').value;
+  const holes   = parseInt(document.getElementById('f-holes').value);
+  const rating  = parseInt(document.getElementById('f-rating').value)||0;
+  const weather = document.getElementById('f-weather').value||null;
+  const notes   = document.getElementById('f-notes').value.trim()||null;
+  const lat     = parseFloat(document.getElementById('f-lat').value)||null;
+  const lng     = parseFloat(document.getElementById('f-lng').value)||null;
+  const t100    = parseInt(document.getElementById('f-t100').value)||null;
+
+  rounds.unshift({
+    id: Date.now().toString(), name, country, date,
+    score: score ? parseInt(score) : null,
+    holes, rating, weather, notes, lat, lng, t100
+  });
+
+  save(); refreshMarkers(); updateHeader();
+  renderRounds(); renderT100(); renderStats();
+
+  // Reset
+  document.getElementById('add-form').reset();
+  curRating=0; paintStars(0);
+  ['f-lat','f-lng','f-t100'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('loc-status').className='';
+  document.getElementById('loc-status').textContent='';
+  document.getElementById('f-date').value = todayStr();
+
+  toast(`✅ "${name}" saved!`);
+  switchTab('rounds');
+  if (lat && lng) gmap.flyTo([lat,lng],13);
+}
+
+// ══════════════════════════════════════════════════
+// DELETE
+// ══════════════════════════════════════════════════
+function del(id) {
+  if (!confirm('Remove this round?')) return;
+  rounds = rounds.filter(r=>r.id!==id);
+  save(); refreshMarkers(); updateHeader();
+  renderRounds(); renderT100(); renderStats();
+  toast('Round removed');
+}
+
+// ══════════════════════════════════════════════════
+// MY ROUNDS TAB
+// ══════════════════════════════════════════════════
+function filterRounds(f,btn) {
+  rfilt=f;
+  document.querySelectorAll('#pane-rounds .fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderRounds();
+}
+
+function renderRounds() {
+  const box = document.getElementById('rounds-list');
+  let data = rounds;
+  if      (rfilt==='top100')                   data = rounds.filter(r=>r.t100);
+  else if (rfilt!=='all')                      data = rounds.filter(r=>r.country===rfilt);
+
+  if (!data.length) {
+    box.innerHTML = `<div class="empty"><div class="eico">⛳</div>
+      <p>${rounds.length ? 'No rounds match this filter.' : 'No rounds recorded yet.<br>Add your first round!'}</p></div>`;
+    return;
+  }
+
+  box.innerHTML = data.map(r => {
+    const stars = r.rating ? '★'.repeat(r.rating)+'☆'.repeat(5-r.rating) : '';
+    return `
+      <div class="rcard ${r.country}" onclick="flyTo(${r.lat},${r.lng})">
+        ${r.t100?`<span class="t100b">🏆 #${r.t100}</span>`:''}
+        <div class="cname">${r.name}</div>
+        <div class="rmeta">
+          <span>${CN[r.country]||r.country}</span>
+          <span>📅 ${r.date||'—'}</span>
+          ${r.score?`<span>🏌️ ${r.score}${r.holes===9?' (9h)':''}</span>`:''}
+        </div>
+        ${stars?`<div class="stars-s" style="margin-top:4px;font-size:.82rem;">${stars}</div>`:''}
+        ${r.weather?`<div style="font-size:.72rem;color:#777;margin-top:2px;">${r.weather}</div>`:''}
+        <button class="delbtn" onclick="event.stopPropagation();del('${r.id}')">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+function flyTo(lat,lng) {
+  if (lat&&lng) gmap.flyTo([lat,lng],13);
+}
+
+// ══════════════════════════════════════════════════
+// TOP 100 TAB
+// ══════════════════════════════════════════════════
+function filterTop100(f,btn) {
+  t100filt=f;
+  document.querySelectorAll('#t100-fbar .fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderT100();
+}
+
+function renderT100() {
+  const playedMap = {};
+  rounds.forEach(r => { if(r.t100) playedMap[r.t100]=r; });
+  const cnt = Object.keys(playedMap).length;
+  const pct = cnt;
+  document.getElementById('t100-txt').textContent  = `${cnt} of 100 played`;
+  document.getElementById('t100-pct').textContent  = `${pct}%`;
+  document.getElementById('t100-bar').style.width  = `${pct}%`;
+
+  let courses = [...T100].sort((a,b)=>a.rank-b.rank);
+  if      (t100filt==='played') courses=courses.filter(c=>playedMap[c.rank]);
+  else if (t100filt!=='all')    courses=courses.filter(c=>c.country===t100filt);
+
+  const box = document.getElementById('t100-list');
+  if (!courses.length) {
+    box.innerHTML=`<div class="empty"><div class="eico">🔍</div><p>Nothing here yet</p></div>`;
+    return;
+  }
+
+  box.innerHTML = courses.map(c => {
+    const done = !!playedMap[c.rank];
+    const r    = playedMap[c.rank];
+    const xtr  = done && r ? [r.score?` · ${r.score}`:'', r.rating?` · ${'★'.repeat(r.rating)}`:'' ].join('') : '';
+    return `
+      <div class="t100item ${done?'played':''}" onclick="gmap.flyTo([${c.lat},${c.lng}],13)">
+        <span class="trank">#${c.rank}</span>
+        <div style="flex:1">
+          <div class="tname">${c.name}</div>
+          <div class="tcountry" style="color:${CC[c.country]}">${CN[c.country]||c.country}${xtr}</div>
+        </div>
+        ${done?'<span class="ptick">✓</span>':''}
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// STATS TAB
+// ══════════════════════════════════════════════════
+function renderStats() {
+  const total   = rounds.length;
+  const t100c   = rounds.filter(r=>r.t100).length;
+  const scored  = rounds.filter(r=>r.score);
+  const avg     = scored.length ? Math.round(scored.reduce((s,r)=>s+r.score,0)/scored.length) : null;
+  const best    = scored.length ? Math.min(...scored.map(r=>r.score)) : null;
+
+  document.getElementById('sgrid').innerHTML = `
+    <div class="scard"><div class="snum">${total}</div><div class="slbl">Total Rounds</div></div>
+    <div class="scard"><div class="snum" style="color:#F9A825">${t100c}</div><div class="slbl">Top 100 Played</div></div>
+    <div class="scard"><div class="snum" style="font-size:1.4rem">${avg||'—'}</div><div class="slbl">Avg Score</div></div>
+    <div class="scard"><div class="snum" style="font-size:1.4rem">${best||'—'}</div><div class="slbl">Best Score</div></div>
+  `;
+
+  const byCo = {england:0,scotland:0,wales:0,northern_ireland:0};
+  rounds.forEach(r=>{ if(byCo[r.country]!==undefined) byCo[r.country]++; });
+  const maxCo = Math.max(...Object.values(byCo),1);
+  const coNames = {england:'England',scotland:'Scotland',wales:'Wales',northern_ireland:'N. Ireland'};
+
+  let cobars = Object.entries(byCo).map(([co,cnt])=>`
+    <div class="cobar">
+      <span style="min-width:74px;font-size:.76rem;">${coNames[co]}</span>
+      <div class="cobar-fill" style="background:${CC[co]};width:${Math.max(cnt/maxCo*130,cnt?8:0)}px;"></div>
+      <span style="font-weight:800;font-size:.8rem;margin-left:4px;">${cnt}</span>
+    </div>`).join('');
+
+  const top3 = [...rounds].filter(r=>r.rating).sort((a,b)=>b.rating-a.rating).slice(0,3);
+  if (top3.length) {
+    cobars += `<div style="height:12px"></div><div class="sec-title">Top Rated Courses</div>`;
+    cobars += top3.map(r=>`
+      <div style="background:#fff;border-radius:8px;padding:9px 11px;margin-bottom:7px;
+           box-shadow:0 1px 4px rgba(0,0,0,.07);font-size:.82rem;border-left:3px solid ${CC[r.country]}">
+        <strong>${r.name}</strong>
+        <div style="color:#FFD700;font-size:.88rem;">${'★'.repeat(r.rating)}</div>
+      </div>`).join('');
+  }
+  document.getElementById('cobars').innerHTML = cobars;
+}
+
+// ══════════════════════════════════════════════════
+// HEADER STATS
+// ══════════════════════════════════════════════════
+function updateHeader() {
+  const unique = new Set(rounds.map(r => r.name.toLowerCase().trim())).size;
+  document.getElementById('hs-unique').textContent = unique;
+  document.getElementById('hs-top').textContent    = rounds.filter(r=>r.t100).length;
+}
+
+// ══════════════════════════════════════════════════
+// TAB SWITCHER
+// ══════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`pane-${tab}`).classList.add('active');
+  document.getElementById(`tb-${tab}`).classList.add('active');
+  if (tab==='rounds') renderRounds();
+  if (tab==='top100') renderT100();
+  if (tab==='stats')  renderStats();
+}
+
+// ══════════════════════════════════════════════════
+// EXPORT / IMPORT / CLEAR
+// ══════════════════════════════════════════════════
+function exportData() {
+  const blob = new Blob([JSON.stringify(rounds,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(blob), download:'golf_tracker.json'
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('📤 Data exported!');
+}
+
+function importData(ev) {
+  const f = ev.target.files[0];
+  if (!f) return;
+  const fr = new FileReader();
+  fr.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (Array.isArray(d)) {
+        rounds=d; save(); refreshMarkers(); updateHeader();
+        renderRounds(); renderT100(); renderStats();
+        toast(`📥 ${d.length} rounds imported!`);
+      }
+    } catch { toast('❌ Invalid file'); }
+  };
+  fr.readAsText(f);
+  ev.target.value='';
+}
+
+function clearAll() {
+  if (!confirm('Delete ALL rounds? This cannot be undone.')) return;
+  rounds=[]; save(); refreshMarkers(); updateHeader();
+  renderRounds(); renderT100(); renderStats();
+  toast('🗑️ All data cleared');
+}
+
+// ══════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// ══════════════════════════════════════════════════
+// UK MAP MASK  – greys out everything outside the UK
+// ══════════════════════════════════════════════════
+async function loadUKMask() {
+  try {
+    const res = await fetch(
+      'https://nominatim.openstreetmap.org/search?q=United+Kingdom&format=geojson&limit=1&polygon_geojson=1&polygon_threshold=0.05',
+      { headers: { 'Accept': 'application/json', 'User-Agent': 'UKGolfTracker/1.0' } }
+    );
+    const data = await res.json();
+    if (data.features && data.features.length) buildMask(data.features[0].geometry);
+  } catch(e) { console.warn('UK outline unavailable – bounds-only mode active'); }
+}
+
+function geoRingToLatLng(ring) {
+  // GeoJSON stores [lng, lat]; Leaflet needs [lat, lng]
+  return ring.map(c => [c[1], c[0]]);
+}
+
+function buildMask(geom) {
+  // Draw a clean border outline around the UK coastline — no fill
+  L.geoJSON({ type: 'Feature', geometry: geom }, {
+    style: {
+      fillOpacity: 0,
+      color: '#1B4332',
+      weight: 1.8,
+      opacity: 0.55,
+      interactive: false
+    }
+  }).addTo(gmap);
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  load();
+  initMap();
+  updateHeader();
+  renderRounds();
+  renderT100();
+  renderStats();
+  document.getElementById('f-date').value = todayStr();
+});
+</script>
+</body>
+</html>
