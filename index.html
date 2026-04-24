@@ -49,22 +49,10 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidde
 
 /* ── MOBILE: sidebar becomes bottom drawer ────── */
 @media (max-width: 700px) {
-  #main { flex-direction: column-reverse; }
-
-  #sidebar {
-    width:100% !important;
-    min-width:0 !important;
-    max-height: 72vh;
-    transition: max-height .32s cubic-bezier(.4,0,.2,1);
-    border-radius: 18px 18px 0 0;
-    box-shadow: 0 -4px 18px rgba(0,0,0,.18);
-    overflow: hidden;
-    position: relative;
-  }
-
-  #sidebar.collapsed {
-    max-height: 52px; /* just the tab bar */
-    overflow: hidden;
+  /* Flip layout: map top, panel bottom */
+  #main {
+    flex-direction: column;
+    height: 100vh;
   }
 
   #map {
@@ -72,24 +60,53 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidde
     min-height: 0;
   }
 
-  .collapse-bar {
+  /* Sidebar is a bottom sheet */
+  #sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex-shrink: 0;
+    height: 72vh;
+    max-height: 72vh;
     display: flex;
+    flex-direction: column;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -4px 18px rgba(0,0,0,.18);
+    overflow: hidden;
+    transition: max-height .32s cubic-bezier(.4,0,.2,1),
+                height .32s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Collapsed: just handle bar + tab bar visible */
+  #sidebar.collapsed {
+    height: auto;
+    max-height: 96px;
+  }
+
+  /* Tab pane scrolls inside the sheet */
+  .tab-pane {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Drag handle ── */
+  .collapse-bar {
+    display: flex !important;          /* override desktop display:none */
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    padding: 6px 0 2px;
+    padding: 8px 0 4px;
     background: #f4f6f8;
     cursor: pointer;
     border-radius: 18px 18px 0 0;
-    position: sticky;
-    top: 0;
-    z-index: 10;
     gap: 8px;
+    /* NO position:sticky — breaks inside overflow:hidden on iOS Safari */
   }
 
   .collapse-handle {
-    width: 38px;
-    height: 4px;
-    border-radius: 3px;
+    width: 40px;
+    height: 5px;
+    border-radius: 4px;
     background: #b0bec5;
   }
 
@@ -102,6 +119,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidde
   }
 
   .tab-bar {
+    flex-shrink: 0;
     border-radius: 0 !important;
   }
 }
@@ -301,7 +319,7 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidde
 <div id="main">
 
   <!-- ─── SIDEBAR ─── -->
-  <div id="sidebar" id="sidebar">
+  <div id="sidebar">
     <div class="collapse-bar" onclick="toggleSidebar()" id="collapse-bar">
       <div class="collapse-handle"></div>
       <span class="collapse-label" id="collapse-label">Hide panel</span>
@@ -1141,7 +1159,7 @@ function switchTab(tab) {
     const sb = document.getElementById('sidebar');
     sb.classList.remove('collapsed');
     const lbl = document.getElementById('collapse-label');
-    if (lbl) lbl.textContent = 'Hide panel';
+    if (lbl) lbl.textContent = 'Hide panel ↓';
     setTimeout(() => { if (gmap) gmap.invalidateSize(); }, 350);
   }
   if (tab==='rounds') renderRounds();
@@ -1240,17 +1258,17 @@ function toggleSidebar() {
   const sb    = document.getElementById('sidebar');
   const label = document.getElementById('collapse-label');
   const isCollapsed = sb.classList.toggle('collapsed');
-  label.textContent = isCollapsed ? 'Show panel' : 'Hide panel';
-  // Let map re-render after transition
+  if (label) label.textContent = isCollapsed ? 'Show panel ↑' : 'Hide panel ↓';
   setTimeout(() => { if (gmap) gmap.invalidateSize(); }, 350);
 }
 
 // Auto-collapse when map is tapped on mobile
 document.addEventListener('DOMContentLoaded', () => {
   if (window.innerWidth <= 700) {
-    document.getElementById('sidebar').classList.add('collapsed');
+    const sb    = document.getElementById('sidebar');
     const label = document.getElementById('collapse-label');
-    if (label) label.textContent = 'Show panel';
+    if (sb) sb.classList.add('collapsed');
+    if (label) label.textContent = 'Show panel ↑';
   }
 });
 
