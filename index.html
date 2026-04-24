@@ -36,6 +36,74 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidde
   background:#f4f6f8;
   box-shadow:2px 0 10px rgba(0,0,0,.12);
   z-index:500;overflow:hidden;
+  transition: width .28s ease, min-width .28s ease;
+}
+#sidebar.collapsed {
+  width:360px;min-width:360px; /* desktop: no collapse width change */
+}
+
+/* ── COLLAPSE TOGGLE ──────────────────────────── */
+.collapse-bar {
+  display:none; /* hidden on desktop */
+}
+
+/* ── MOBILE: sidebar becomes bottom drawer ────── */
+@media (max-width: 700px) {
+  #main { flex-direction: column-reverse; }
+
+  #sidebar {
+    width:100% !important;
+    min-width:0 !important;
+    max-height: 72vh;
+    transition: max-height .32s cubic-bezier(.4,0,.2,1);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -4px 18px rgba(0,0,0,.18);
+    overflow: hidden;
+    position: relative;
+  }
+
+  #sidebar.collapsed {
+    max-height: 52px; /* just the tab bar */
+    overflow: hidden;
+  }
+
+  #map {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .collapse-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0 2px;
+    background: #f4f6f8;
+    cursor: pointer;
+    border-radius: 18px 18px 0 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    gap: 8px;
+  }
+
+  .collapse-handle {
+    width: 38px;
+    height: 4px;
+    border-radius: 3px;
+    background: #b0bec5;
+  }
+
+  .collapse-label {
+    font-size: .65rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .tab-bar {
+    border-radius: 0 !important;
+  }
 }
 .tab-bar{display:flex;background:#1B4332;}
 .tab-btn{
@@ -233,7 +301,11 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidde
 <div id="main">
 
   <!-- ─── SIDEBAR ─── -->
-  <div id="sidebar">
+  <div id="sidebar" id="sidebar">
+    <div class="collapse-bar" onclick="toggleSidebar()" id="collapse-bar">
+      <div class="collapse-handle"></div>
+      <span class="collapse-label" id="collapse-label">Hide panel</span>
+    </div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('add')" id="tb-add">
         <span class="ti">➕</span>Add Round
@@ -1064,6 +1136,14 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(`pane-${tab}`).classList.add('active');
   document.getElementById(`tb-${tab}`).classList.add('active');
+  // On mobile: auto-expand panel when a tab is tapped
+  if (window.innerWidth <= 700) {
+    const sb = document.getElementById('sidebar');
+    sb.classList.remove('collapsed');
+    const lbl = document.getElementById('collapse-label');
+    if (lbl) lbl.textContent = 'Hide panel';
+    setTimeout(() => { if (gmap) gmap.invalidateSize(); }, 350);
+  }
   if (tab==='rounds') renderRounds();
   if (tab==='top100') renderT100();
   if (tab==='stats')  renderStats();
@@ -1151,6 +1231,28 @@ function buildMask(geom) {
     }
   }).addTo(gmap);
 }
+
+
+// ══════════════════════════════════════════════════
+// SIDEBAR COLLAPSE (mobile)
+// ══════════════════════════════════════════════════
+function toggleSidebar() {
+  const sb    = document.getElementById('sidebar');
+  const label = document.getElementById('collapse-label');
+  const isCollapsed = sb.classList.toggle('collapsed');
+  label.textContent = isCollapsed ? 'Show panel' : 'Hide panel';
+  // Let map re-render after transition
+  setTimeout(() => { if (gmap) gmap.invalidateSize(); }, 350);
+}
+
+// Auto-collapse when map is tapped on mobile
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.innerWidth <= 700) {
+    document.getElementById('sidebar').classList.add('collapsed');
+    const label = document.getElementById('collapse-label');
+    if (label) label.textContent = 'Show panel';
+  }
+});
 
 // ══════════════════════════════════════════════════
 // INIT
